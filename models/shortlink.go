@@ -1,0 +1,10 @@
+package models
+
+import "gorm.io/gorm"
+
+// 数据模型
+type ShortLink struct {
+	gorm.Model
+	ShortCode   string `gorm:"column:short_code;uniqueIndex"`
+	OriginalURL string `gorm:"column:original_url"`
+}
