@@ -3,13 +3,19 @@ package main
 import (
 	"github.com/OwnYoung/shortURL/controllers"
 	"github.com/OwnYoung/shortURL/storage"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
 	storage.InitDB()
 	r := gin.Default()
-
+	// 启用 CORS
+	r.Use(cors.Default())
+	r.Static("/static", "./static")
+	r.GET("/", func(c *gin.Context) {
+		c.File("./static/index.html")
+	})
 	// 短链生成和跳转接口
 	r.POST("/post", controllers.CreateShortLink)
 	r.GET("/:shortCode", controllers.RedirectShortLink)

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="UTF-8">
+    <title>短链生成器</title>
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+        }
+        .container {
+            padding: 32px 40px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            background: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>短链生成器</h2>
+        <form id="shortlink-form">
+            <input type="text" name="url" id="url" placeholder="请输入原始链接" style="width:300px;" required>
+            <button type="submit">生成短链</button>
+        </form>
+        <div id="result"></div>
+    </div>
+    <script>
+        document.getElementById('shortlink-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const url = document.getElementById('url').value;
+            fetch('/post', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: 'url=' + encodeURIComponent(url)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.short_code) {
+                    document.getElementById('result').innerHTML =
+                        '短码：<a href="/' + data.short_code + '" target="_blank">' +
+                        window.location.origin + '/' + data.short_code + '</a><br>原始链接：' + data.original_url;
+                } else {
+                    document.getElementById('result').innerText = data.message || '生成失败';
+                }
+            })
+            .catch(() => {
+                document.getElementById('result').innerText = '请求失败';
+            });
+        });
+    </script>
+</body>
+</html>
