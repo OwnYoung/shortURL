@@ -11,6 +11,7 @@ func main() {
 	storage.InitDB()
 	r := gin.Default()
 	// 启用 CORS
+	// TODO 处理静态页面
 	r.Use(cors.Default())
 	r.Static("/static", "./static")
 	r.GET("/", func(c *gin.Context) {

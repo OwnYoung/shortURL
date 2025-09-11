@@ -3,7 +3,8 @@ package controllers
 import (
 	"crypto/sha256"
 	"encoding/base64"
-	"strconv"
+
+	// "strconv"
 
 	"strings"
 
@@ -20,14 +21,10 @@ func CreateShortLink(c *gin.Context) {
 	// POST /post?url=xxxx HTTP/1.1
 	link := c.PostForm("url")
 	password := c.PostForm("password")
-	expiresAtStr := c.PostForm("expires_at")
+	expiresAt := c.PostForm("expires_at") // 直接传入iso格式过期时间戳
 
-	// strconv.ParseInt(s, base, bitSize)
-	// base = 10 表示按十进制解析
-	// bitSize = 64 表示结果放入有符号 64 位 (int64) 范围内
-	expirationTime, err := strconv.ParseInt(expiresAtStr, 10, 64)
-	if err != nil {
-		c.JSON(400, gin.H{"error": "Invalid expiration time"})
+	if link == "" || expiresAt == "" {
+		c.JSON(400, gin.H{"error": "Missing required parameters"})
 		return
 	}
 
@@ -44,7 +41,7 @@ func CreateShortLink(c *gin.Context) {
 		return
 	}
 
-	// 生成唯一短码
+	// 不存在，生成唯一短码
 	shortCode := generateShortCode(link)
 	var existing models.ShortLink
 	result := storage.DB.Where("short_code = ?", shortCode).Take(&existing)
@@ -57,7 +54,7 @@ func CreateShortLink(c *gin.Context) {
 		ShortCode:   shortCode,
 		OriginalURL: link,
 		Password:    password,
-		ExpiresAt:   expirationTime,
+		ExpiresAt:   expiresAt,
 	}
 
 	storage.DB.Create(&newLink)
@@ -74,6 +71,9 @@ func CreateShortLink(c *gin.Context) {
 func RedirectShortLink(c *gin.Context) {
 	// 根据短码找原链接
 	shortCode := c.Param("shortCode")
+	password := c.Query("password")
+
+	// TODO: 添加密码验证
 	var link models.ShortLink
 	result := storage.DB.Where("short_code = ?", shortCode).Take(&link)
 	if result.Error != nil {
@@ -81,6 +81,22 @@ func RedirectShortLink(c *gin.Context) {
 		c.JSON(404, gin.H{"error": "Short link not found"})
 		return
 	}
+	// 找到对应的短码，检查是否过期
+	expireTime, err := time.Parse(time.RFC3339, link.ExpiresAt)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Invalid expires_at format"})
+		return
+	}
+	if time.Now().After(expireTime) {
+		c.JSON(403, gin.H{"error": "Short link has expired"})
+		return
+	}
+	// 检查密码是否正确
+	if link.Password != "" && link.Password != password {
+		c.JSON(401, gin.H{"error": "Incorrect password"})
+		return
+	}
+
 	// 校验结束，在有效期内，密码正确，可以302 重定向
 	// c.Writer.WriteString(fmt.Sprintf("%s \n", "302重定向")) // 打印日志
 	if !strings.HasPrefix(link.OriginalURL, "http") {

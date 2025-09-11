@@ -25,7 +25,10 @@
     <div class="container">
         <h2>短链生成器</h2>
         <form id="shortlink-form">
-            <input type="text" name="url" id="url" placeholder="请输入原始链接" style="width:300px;" required>
+            <input type="text" name="url" id="url" placeholder="请输入原始链接" style="width:300px;" required><br><br>
+            <input type="datetime-local" name="expires_at" id="expires_at" required>
+            <small>有效期（必填）</small><br><br>
+            <input type="text" name="password" id="password" placeholder="访问密码（可选）"><br><br>
             <button type="submit">生成短链</button>
         </form>
         <div id="result"></div>
@@ -34,21 +37,41 @@
         document.getElementById('shortlink-form').addEventListener('submit', function(e) {
             e.preventDefault();
             const url = document.getElementById('url').value;
+            const expiresAtInput = document.getElementById('expires_at').value;
+            const password = document.getElementById('password').value;
+
+            // 转为 ISO 8601 格式
+            let expiresAt = "";
+            if (expiresAtInput) {
+                // datetime-local 返回 "2025-09-11T20:00"
+                expiresAt = new Date(expiresAtInput).toISOString();
+            }
+
+            const params = new URLSearchParams();
+            params.append('url', url);
+            params.append('expires_at', expiresAt);
+            if (password) params.append('password', password);
+
             fetch('/post', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
                 },
-                body: 'url=' + encodeURIComponent(url)
+                body: params.toString()
             })
             .then(res => res.json())
             .then(data => {
                 if (data.short_code) {
+                    let link = window.location.origin + '/' + data.short_code;
+                    if (password) {
+                        link += '?password=' + encodeURIComponent(password);
+                    }
                     document.getElementById('result').innerHTML =
-                        '短码：<a href="/' + data.short_code + '" target="_blank">' +
-                        window.location.origin + '/' + data.short_code + '</a><br>原始链接：' + data.original_url;
+                        '短码：<a href="' + link + '" target="_blank">' + link + '</a><br>原始链接：' + data.original_url +
+                        '<br>有效期：' + (data.expires_at || '') +
+                        (password ? '<br>密码：' + password : '');
                 } else {
-                    document.getElementById('result').innerText = data.message || '生成失败';
+                    document.getElementById('result').innerText = data.message || data.error || '生成失败';
                 }
             })
             .catch(() => {

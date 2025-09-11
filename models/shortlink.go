@@ -8,5 +8,5 @@ type ShortLink struct {
 	ShortCode   string `gorm:"column:short_code;uniqueIndex"`
 	OriginalURL string `gorm:"column:original_url"`
 	Password    string `gorm:"column:password"`
-	ExpiresAt   int64  `gorm:"column:expires_at"`
+	ExpiresAt   string `gorm:"column:expires_at"`
 }
