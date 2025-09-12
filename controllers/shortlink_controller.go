@@ -32,12 +32,18 @@ func CreateShortLink(c *gin.Context) {
 	var existingLink models.ShortLink
 	flag := storage.DB.Where("original_url = ?", link).Take(&existingLink)
 	if flag.Error == nil {
-		c.JSON(200, gin.H{
-			"message":      "Link already exists",
-			"short_code":   existingLink.ShortCode,
-			"original_url": existingLink.OriginalURL,
-			"expires_at":   existingLink.ExpiresAt,
-		})
+		// 检查是否过期
+		expireTime, err := time.Parse(time.RFC3339, existingLink.ExpiresAt)
+		if err == nil && time.Now().After(expireTime) {
+			// 已过期，允许创建新短链
+		} else {
+			c.JSON(200, gin.H{
+				"message":      "Link already exists",
+				"short_code":   existingLink.ShortCode,
+				"original_url": existingLink.OriginalURL,
+				"expires_at":   existingLink.ExpiresAt,
+			})
+		}
 		return
 	}
 
@@ -73,7 +79,6 @@ func RedirectShortLink(c *gin.Context) {
 	shortCode := c.Param("shortCode")
 	password := c.Query("password")
 
-	// TODO: 添加密码验证
 	var link models.ShortLink
 	result := storage.DB.Where("short_code = ?", shortCode).Take(&link)
 	if result.Error != nil {
@@ -93,7 +98,8 @@ func RedirectShortLink(c *gin.Context) {
 	}
 	// 检查密码是否正确
 	if link.Password != "" && link.Password != password {
-		c.JSON(401, gin.H{"error": "Incorrect password"})
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.String(401, `<script>window.location.href='/static/password_prompt.html?code=%s'</script>`, shortCode)
 		return
 	}
 

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="UTF-8">
+    <title>短链跳转</title>
+</head>
+<body>
+<script>
+(function() {
+    // 获取短码
+    const code = new URLSearchParams(window.location.search).get('code');
+    if (!code) {
+        document.body.innerText = '短码缺失';
+        return;
+    }
+    // 拼接短链API
+    const apiUrl = '/' + code + window.location.search.replace(/^\?code=[^&]*/, '');
+    fetch(apiUrl, { method: 'GET', redirect: 'manual' })
+        .then(res => {
+            if (res.status === 401) {
+                // 跳转到密码输入页面
+                window.location.href = '/static/password_prompt.html?code=' + encodeURIComponent(code);
+            } else if (res.status === 302 || res.redirected) {
+                // 后端已重定向
+                window.location.href = res.url;
+            } else if (res.status === 404) {
+                document.body.innerText = '短链不存在';
+            }
+        });
+})();
+</script>
+</body>
+</html>
