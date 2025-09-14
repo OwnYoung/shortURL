@@ -50,7 +50,11 @@
             const params = new URLSearchParams();
             params.append('url', url);
             params.append('expires_at', expiresAt);
-            if (password) params.append('password', password);
+
+            // 只有填写了密码才带 password 字段
+            if (password.trim() !== "") {
+                params.append('password', password);
+            }
 
             fetch('/post', {
                 method: 'POST',
@@ -63,13 +67,15 @@
             .then(data => {
                 if (data.short_code) {
                     let link = window.location.origin + '/' + data.short_code;
-                    if (password) {
+                    // 只有有密码时才拼接密码参数
+                    let showPassword = password.trim() !== "";
+                    if (showPassword) {
                         link += '?password=' + encodeURIComponent(password);
                     }
                     document.getElementById('result').innerHTML =
                         '短码：<a href="' + link + '" target="_blank">' + link + '</a><br>原始链接：' + data.original_url +
                         '<br>有效期：' + (data.expires_at || '') +
-                        (password ? '<br>密码：' + password : '');
+                        (showPassword ? '<br>密码：' + password : '');
                 } else {
                     document.getElementById('result').innerText = data.message || data.error || '生成失败';
                 }

@@ -27,24 +27,46 @@ func CreateShortLink(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "Missing required parameters"})
 		return
 	}
-
-	// 查询原链接是否已存在
+	// 查询是否存在相同 original_url 且 password 为空/不为空的短链
 	var existingLink models.ShortLink
-	flag := storage.DB.Where("original_url = ?", link).Take(&existingLink)
-	if flag.Error == nil {
-		// 检查是否过期
-		expireTime, err := time.Parse(time.RFC3339, existingLink.ExpiresAt)
-		if err == nil && time.Now().After(expireTime) {
-			// 已过期，允许创建新短链
-		} else {
-			c.JSON(200, gin.H{
-				"message":      "Link already exists",
-				"short_code":   existingLink.ShortCode,
-				"original_url": existingLink.OriginalURL,
-				"expires_at":   existingLink.ExpiresAt,
-			})
+	if password == "" {
+		// 用户未设置密码，查找是否有同url且无密码的短链
+		flag := storage.DB.Where("original_url = ? AND (password IS NULL OR password = '')", link).Take(&existingLink)
+		if flag.Error == nil {
+			// 检查是否过期
+			expireTime, err := time.Parse(time.RFC3339, existingLink.ExpiresAt)
+			if err == nil && time.Now().After(expireTime) {
+				// 已过期，允许创建新短链
+			} else {
+				c.JSON(200, gin.H{
+					"message":      "Link already exists (no password)",
+					"short_code":   existingLink.ShortCode,
+					"original_url": existingLink.OriginalURL,
+					"expires_at":   existingLink.ExpiresAt,
+				})
+				return
+			}
 		}
-		return
+		// 如果没查到无密码的短链，或者查到的已过期，则继续往下新建
+	} else {
+		// 用户设置了密码，查找是否有同url且有密码的短链
+		flag := storage.DB.Where("original_url = ? AND password != ''", link).Take(&existingLink)
+		if flag.Error == nil {
+			// 检查是否过期
+			expireTime, err := time.Parse(time.RFC3339, existingLink.ExpiresAt)
+			if err == nil && time.Now().After(expireTime) {
+				// 已过期，允许创建新短链
+			} else {
+				c.JSON(200, gin.H{
+					"message":      "Link already exists (with password)",
+					"short_code":   existingLink.ShortCode,
+					"original_url": existingLink.OriginalURL,
+					"expires_at":   existingLink.ExpiresAt,
+				})
+				return
+			}
+		}
+		// 如果没查到有密码的短链，或者查到的已过期，则继续往下新建
 	}
 
 	// 不存在，生成唯一短码
