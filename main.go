@@ -11,6 +11,7 @@ func main() {
 	storage.InitDB()
 	r := gin.Default()
 	// 启用 CORS
+
 	r.Use(cors.Default())
 	r.Static("/static", "./static")
 	r.GET("/", func(c *gin.Context) {

@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 
+	// "strconv"
+
 	"strings"
 
 	"math/rand"
@@ -17,56 +19,88 @@ import (
 // CreateShortLink 函数：处理创建请求，生成短码，存入数据库。
 func CreateShortLink(c *gin.Context) {
 	// POST /post?url=xxxx HTTP/1.1
-	// 处理创建请求，获得gin传来的原链接
 	link := c.PostForm("url")
+	password := c.PostForm("password")
+	expiresAt := c.PostForm("expires_at") // 直接传入iso格式过期时间戳
 
-	//* 查询原链接是否存在
-	var existingLink models.ShortLink
-	flag := storage.DB.Where("original_url = ?", link).Take(&existingLink)
-	if flag.Error == nil {
-		// 查到数据，error为nil，说明link已存在
-		// c.Writer.WriteString(fmt.Sprintf("%s %s\n", existingLink.ShortCode, existingLink.OriginalURL))
-		c.JSON(200, gin.H{
-			"message":      "Link already exists",
-			"short_code":   existingLink.ShortCode,
-			"original_url": existingLink.OriginalURL,
-		})
+	if link == "" || expiresAt == "" {
+		c.JSON(400, gin.H{"error": "Missing required parameters"})
 		return
 	}
+	// 查询是否存在相同 original_url 且 password 为空/不为空的短链
+	var existingLink models.ShortLink
+	if password == "" {
+		// 用户未设置密码，查找是否有同url且无密码的短链
+		flag := storage.DB.Where("original_url = ? AND (password IS NULL OR password = '')", link).Take(&existingLink)
+		if flag.Error == nil {
+			// 检查是否过期
+			expireTime, err := time.Parse(time.RFC3339, existingLink.ExpiresAt)
+			if err == nil && time.Now().After(expireTime) {
+				// 已过期，允许创建新短链
+			} else {
+				c.JSON(200, gin.H{
+					"message":      "Link already exists (no password)",
+					"short_code":   existingLink.ShortCode,
+					"original_url": existingLink.OriginalURL,
+					"expires_at":   existingLink.ExpiresAt,
+				})
+				return
+			}
+		}
+		// 如果没查到无密码的短链，或者查到的已过期，则继续往下新建
+	} else {
+		// 用户设置了密码，查找是否有同url且有密码的短链
+		flag := storage.DB.Where("original_url = ? AND password != ''", link).Take(&existingLink)
+		if flag.Error == nil {
+			// 检查是否过期
+			expireTime, err := time.Parse(time.RFC3339, existingLink.ExpiresAt)
+			if err == nil && time.Now().After(expireTime) {
+				// 已过期，允许创建新短链
+			} else {
+				c.JSON(200, gin.H{
+					"message":      "Link already exists (with password)",
+					"short_code":   existingLink.ShortCode,
+					"original_url": existingLink.OriginalURL,
+					"expires_at":   existingLink.ExpiresAt,
+				})
+				return
+			}
+		}
+		// 如果没查到有密码的短链，或者查到的已过期，则继续往下新建
+	}
 
-	//* 若不存在则生成短码并存入数据库
-	// 生成短码
+	// 不存在，生成唯一短码
 	shortCode := generateShortCode(link)
-	// 需要先检查数据库是否存在该短码，若存在则重新生成first/take方法
 	var existing models.ShortLink
 	result := storage.DB.Where("short_code = ?", shortCode).Take(&existing)
-
 	for result.Error == nil {
-		// 已经存在，重新生成
 		shortCode = generateShortCode(link)
 		result = storage.DB.Where("short_code = ?", shortCode).Take(&existing)
 	}
 
-	// 存入数据库
 	newLink := models.ShortLink{
 		ShortCode:   shortCode,
 		OriginalURL: link,
-		// CreatedAt: time.Now(),
+		Password:    password,
+		ExpiresAt:   expiresAt,
 	}
+
 	storage.DB.Create(&newLink)
 
-	// 返回结果
 	c.JSON(200, gin.H{
 		"short_code":   shortCode,
 		"original_url": link,
+		"expires_at":   newLink.ExpiresAt,
+		"created_at":   time.Now().Format("2006-01-02 15"),
 	})
-
 }
 
 // RedirectShortLink 函数：根据短码查找原链接并重定向。
 func RedirectShortLink(c *gin.Context) {
 	// 根据短码找原链接
 	shortCode := c.Param("shortCode")
+	password := c.Query("password")
+
 	var link models.ShortLink
 	result := storage.DB.Where("short_code = ?", shortCode).Take(&link)
 	if result.Error != nil {
@@ -74,7 +108,24 @@ func RedirectShortLink(c *gin.Context) {
 		c.JSON(404, gin.H{"error": "Short link not found"})
 		return
 	}
-	// 302 重定向
+	// 找到对应的短码，检查是否过期
+	expireTime, err := time.Parse(time.RFC3339, link.ExpiresAt)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Invalid expires_at format"})
+		return
+	}
+	if time.Now().After(expireTime) {
+		c.JSON(403, gin.H{"error": "Short link has expired"})
+		return
+	}
+	// 检查密码是否正确
+	if link.Password != "" && link.Password != password {
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.String(401, `<script>window.location.href='/static/password_prompt.html?code=%s'</script>`, shortCode)
+		return
+	}
+
+	// 校验结束，在有效期内，密码正确，可以302 重定向
 	// c.Writer.WriteString(fmt.Sprintf("%s \n", "302重定向")) // 打印日志
 	if !strings.HasPrefix(link.OriginalURL, "http") {
 		link.OriginalURL = "http://" + link.OriginalURL
