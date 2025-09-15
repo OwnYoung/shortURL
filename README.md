@@ -1,37 +1,104 @@
 # 短链服务
 
-一个简洁有力的描述，说明你的项目是什么以及它解决了什么问题。
+一个简洁高效的短链接生成与管理服务，支持自定义过期时间和密码保护，适合个人或团队内部使用。
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Python Version](https://img.shields.io/badge/python-3.8%2B-brightgreen)
-![Build Status](https://img.shields.io/github/actions/workflow/status/your_username/your_repo/ci.yml?branch=main)
+<p align="left">
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg">
+  <img alt="Go Version" src="https://img.shields.io/badge/go-1.18+-brightgreen">
+  <img alt="Build Status" src="https://img.shields.io/github/actions/workflow/status/your_username/your_repo/ci.yml?branch=main">
+</p>
 
-![image-20250914232857028](/Users/ouyangyi/Library/Application Support/typora-user-images/image-20250914232857028.png)
+## 目录
 
-
-
-![image-20250914232820346](/Users/ouyangyi/Library/Application Support/typora-user-images/image-20250914232820346.png)
-
-> **提示**: 这是一个附加的、更详细的说明或“电梯演讲”。
-
+- [特性](#特性)
+- [安装](#安装)
+- [快速开始](#快速开始)
+- [使用指南](#使用指南)
+- [目录结构](#目录结构)
+- [API 说明](#api-说明)
+- [如何贡献](#如何贡献)
+- [许可证](#许可证)
+- [作者/贡献者](#作者贡献者)
+- [致谢](#致谢)
 
 ## ✨ 特性
 
-
+- 支持短链接生成与跳转
+- 可设置按小时精度的过期时间（ISO 8601 格式）
+- 支持密码保护短链
+- 简洁的前端页面
+- SQLite 本地存储，易于部署
+- RESTful API 设计
 
 ## 📦 安装
 
-
+1. 克隆仓库
+   ```bash
+   git clone https://github.com/your_username/shortURL.git
+   cd shortURL
+   ```
+2. 构建
+   ```bash
+   go build -o shortURL
+   ```
+3. （可选）直接使用已编译的 `shortURL.exe`
 
 ## 🚀 快速开始
 
-
+1. 启动服务
+   ```bash
+   ./shortURL
+   ```
+2. 访问 [http://localhost:8080](http://localhost:8080) 打开前端页面
 
 ## 📖 使用指南
 
+- **生成短链**：在首页输入原始链接、可选的过期时间和密码，点击生成
+- **访问短链**：通过生成的短链访问，若设置了密码则需输入密码
+- **过期机制**：短链到期后自动失效，无法访问
 
+## 🗂️ 目录结构
 
+```
+shortURL
+├─ README.md
+├─ controllers
+│  └─ shortlink_controller.go
+├─ go.mod
+├─ go.sum
+├─ main.go
+├─ models
+│  └─ shortlink.go
+├─ shortURL.exe
+├─ static
+│  ├─ index.html
+│  ├─ password_prompt.html
+│  └─ shortlink.html
+├─ storage
+│  └─ storage.go
+└─ test.db
 
+```
+
+## 🛠️ API 说明
+
+### 创建短链
+
+- `POST /api/shorten`
+  - 请求参数（JSON）:
+    - `url` (string): 原始链接
+    - `expire_at` (string, 可选): 过期时间（ISO 8601 格式）
+    - `password` (string, 可选): 访问密码
+  - 返回:
+    - `short_url` (string): 生成的短链
+
+### 跳转短链
+
+- `GET /s/{shortcode}`
+  - 跳转到原始链接
+  - 若设置了密码，需通过验证
+
+> 具体参数和返回格式详见代码注释
 
 ## 🤝 如何贡献
 
@@ -43,56 +110,20 @@
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 打开一个 Pull Request
 
-请阅读 [CONTRIBUTING.md](https://contributing.md/) 了解详细的行为准则和提交流程。
+请阅读 `CONTRIBUTING.md` 了解详细的行为准则和提交流程。
 
 ## 📜 许可证
 
-本项目基于 **MIT** 许可证发行。详情请见 [LICENSE](https://license/) 文件。
+本项目基于 MIT 许可证发行。详情请见 LICENSE 文件。
 
 ## 👥 作者/贡献者
 
-- **Orion Young** - *初始工作* - [YourUsername](https://github.com/yourusername)
+- Orion Young - 初始工作 
 
-感谢所有为此项目做出贡献的人！ ([contributors](https://github.com/yourusername/yourrepo/contributors)).
+感谢所有为此项目做出贡献的人！(contributors)
 
 ## 🙏 致谢
 
-- 灵感来源 [某个项目](https://github.com/someproject)
-- 感谢 [某个人](https://github.com/someone) 提出的宝贵建议。
-- 使用的图标来自 [某网站](https://somewebsite.com/)。
-
-```
-
-shortURL/
-├── main.go          # 程序入口
-├── models/          # 数据模型
-│   └── shortlink.go
-├── controllers/     # 控制器（处理业务逻辑）
-│   └── shortlink_controller.go
-├── storage/         # 数据库层
-│   └── storage.go
-└── go.mod
-```
-
-ToDo添加过期时间
-
-页面 按小时过期，后端存戳，比对时间
-时间格式 2006-01-02 15 （仅精确到小时）
-ISO 8601 字符串
-
-如 2024-06-01T12:00:00Z 或 2024-06-01T12:00:00+08:00
--[ ] 添加过期时间
-
--[ ] 添加密码验证
-
-### 版本v1.0914
-
-前端更新：
-
-- 用户未填写密码时，不会提交 password 字段。
-- 展示短链时，只有有密码才显示密码信息。
-
-后端修改逻辑：
-
-1. 查询数据库时，where 条件要加上 password 是否为空（或 has_password 字段为 false）。
-2. 如果查到的记录 password 不为空（即有密码），则不返回，直接新建一条 has_password=false 的短链。
+- 灵感来源 某个项目
+- 感谢 某个人 提出的宝贵建议
+- 使用的图标来自 某网站
